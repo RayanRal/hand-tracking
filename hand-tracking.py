@@ -1,41 +1,19 @@
 import numpy as np
 import cv2
 import get_points
+import find_contours
+
 
 cap = cv2.VideoCapture(0)
-
-# ###1 ALL THIS WILL BE REPLACED WITH CAFFE DETECTION
-while (True):
-    # Capture frame-by-frame
-    ret, frame = cap.read()
-    img = cv2.flip(frame, 1)
-    if not ret:
-        print "Cannot capture frame device"
-        exit()
-    if cv2.waitKey(10) == ord('p'):
-        break
-    cv2.namedWindow("Image", cv2.WINDOW_NORMAL)
-    cv2.imshow("Image", img)
-
-cv2.destroyWindow("Image")
-#    tlx  tly  brx  bry
-# [(359, 233, 630, 408)]
-points = get_points.run(img)
+points, img = get_points.find_points(cap)
 
 if not points:
     print "ERROR: No object to be tracked."
     exit()
 
-# ### END 1
-
 bbplus = 100
-minx = points[0][0]
-miny = points[0][1]
-maxx = points[0][2]
-maxy = points[0][3]
-
-r, h, c, w = minx, miny, maxx-minx, maxy-miny  # simply hardcoded the values
-
+minx, miny, maxx, maxy = points[0][0], points[0][1], points[0][2], points[0][3]
+r, h, c, w = minx, miny, maxx-minx, maxy-miny
 # (xmin, ymin, xmax - xmin, ymax - ymin)
 track_window = (c, r, w, h)
 
@@ -64,57 +42,7 @@ while(True):
 
         (c, r, w, h) = track_window
         img_hand = img[r-bbplus:r + h + bbplus, c-bbplus:c + w + bbplus]
-
-        #!!! find contours
-        gray = cv2.cvtColor(img_hand, cv2.COLOR_BGR2GRAY)
-        blur = cv2.GaussianBlur(gray, (7, 7), 2)
-        ret2, thresh1 = cv2.threshold(blur, 70, 200, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-        contours, hierarchy = cv2.findContours(thresh1, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        drawing = np.zeros(img_hand.shape, np.uint8)
-        if thresh1 is not None:
-            cv2.imshow('hand', thresh1)
-
-        # > extract the largest contour
-        max_area = 0
-        for i in range(len(contours)):
-            cnt = contours[i]
-            area = cv2.contourArea(cnt)
-            if area > max_area:
-                max_area = area
-                ci = i
-        cnt = contours[ci]
-        hull = cv2.convexHull(cnt)
-        moments = cv2.moments(cnt)
-        if moments['m00'] != 0:
-            cx = int(moments['m10'] / moments['m00'])  # cx = M10/M00
-            cy = int(moments['m01'] / moments['m00'])  # cy = M01/M00
-
-        centr = (cx, cy)
-        cv2.circle(img_hand, centr, 5, [0, 0, 255], 2)
-        cv2.drawContours(drawing, [cnt], 0, (0, 255, 0), 2)
-        cv2.drawContours(drawing, [hull], 0, (0, 0, 255), 2)
-
-        cnt = cv2.approxPolyDP(cnt, 0.01 * cv2.arcLength(cnt, True), True)
-        hull = cv2.convexHull(cnt, returnPoints=False)
-
-        if cnt.any() and hull.any():
-            defects = cv2.convexityDefects(cnt, hull)
-            mind = 0
-            maxd = 0
-            if defects is not None:
-                for i in range(defects.shape[0]):
-                    s, e, f, d = defects[i, 0]
-                    start = tuple(cnt[s][0])
-                    end = tuple(cnt[e][0])
-                    far = tuple(cnt[f][0])
-                    dist = cv2.pointPolygonTest(cnt, centr, True)
-                    cv2.line(img_hand, start, end, [0, 255, 0], 2)
-
-                    cv2.circle(img_hand, far, 5, [0, 0, 255], -1)
-            i = 0
-        #!!! find contours end
-        # cv2.imshow('hand', img_hand)
+        img_hand = find_contours.find_contours(img_hand)
 
         # Draw it on image - meanShift
         # x, y, w, h = track_window

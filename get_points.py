@@ -99,6 +99,26 @@ def check_point(points):
     return out
 
 
+def find_points(cap):
+    # ###1 ALL THIS WILL BE REPLACED WITH CAFFE DETECTION
+    while (True):
+        # Capture frame-by-frame
+        ret, frame = cap.read()
+        img = cv2.flip(frame, 1)
+        if not ret:
+            print "Cannot capture frame device"
+            exit()
+        if cv2.waitKey(10) == ord('p'):
+            break
+        cv2.namedWindow("Image", cv2.WINDOW_NORMAL)
+        cv2.imshow("Image", img)
+
+    cv2.destroyWindow("Image")
+    #    tlx  tly  brx  bry
+    points = run(img)
+    return points, img
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("-i", "--imagepath", required=True, help="Path to image")
